@@ -1,0 +1,92 @@
+﻿@page "/engine"
+@using BatchProcessing.Web.Services
+@implements IDisposable
+
+@rendermode InteractiveServer
+@inject ApiClient Api
+
+<PageTitle>Engine Example</PageTitle>
+
+<h1>Batch Engine Simulator</h1>
+
+<InputNumber @bind-Value="@_recordsToCreate"></InputNumber>
+<button class="btn btn-primary" @onclick="@RunAnalysis">Simulate Batch Run</button>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Status</th>
+            <th>Current Record</th>
+            <th>Total Records</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var engineRun in _engineRuns)
+        {
+            <tr>
+                <td>@engineRun.Id.ToString()</td>
+                <td>@engineRun.Status</td>
+                <td>@engineRun.RecordsProcessed</td>
+                <td>@engineRun.RecordCount</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private readonly List<EngineStatusRecord> _engineRuns = new();
+    private Timer? _timer;
+
+    private int _recordsToCreate = 100;
+
+    protected override Task OnInitializedAsync()
+    {
+        _timer = new Timer(async _ => await CheckStatus(), null, 0, 1000);
+        return Task.CompletedTask;
+    }
+
+    private async Task CheckStatus()
+    {
+        foreach (var item in _engineRuns ?? new())
+        {
+            if(item.Status == AnalysisStatus.Completed)
+            {
+                continue;
+            }
+
+            var run = await Api.GetBatchProcessingStatusAsync(item.Id);
+            if (run != null)
+            {
+                item.Status = run.Status;
+                item.RecordsProcessed = run.RecordsProcessed;
+            }
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void RunAnalysis()
+    {
+        InvokeAsync(async () =>
+        {
+            var runGuid = await Api.StartBatchProcessingAsync(_recordsToCreate);
+
+            var run = await Api.GetBatchProcessingStatusAsync(runGuid);
+
+            if (run != null)
+            {
+                _engineRuns.Add(run);
+            }
+
+            await InvokeAsync(StateHasChanged);
+        });
+
+
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}
