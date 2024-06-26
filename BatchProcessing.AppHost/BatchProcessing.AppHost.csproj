@@ -11,6 +11,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BatchProcessing.ApiService\BatchProcessing.ApiService.csproj" />
+    <ProjectReference Include="..\BatchProcessing.Dashboard\BatchProcessing.Dashboard.csproj" />
+    <ProjectReference Include="..\BatchProcessing.Engine\BatchProcessing.Engine.csproj" />
     <ProjectReference Include="..\BatchProcessing.Web\BatchProcessing.Web.csproj" />
   </ItemGroup>
 

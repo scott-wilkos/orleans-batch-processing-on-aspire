@@ -1,4 +1,7 @@
-﻿namespace BatchProcessing.ApiService.Grains
+﻿using BatchProcessing.Abstractions.Grains;
+using Microsoft.Extensions.Logging;
+
+namespace BatchProcessing.Grains
 {
     internal class EngineWorkerGrain(ILogger<EngineWorkerGrain> logger) : Grain, IEngineWorkerGrain
     {

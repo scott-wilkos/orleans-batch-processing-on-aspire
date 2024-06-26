@@ -1,6 +1,8 @@
-﻿using Orleans.Concurrency;
+﻿using BatchProcessing.Abstractions.Grains;
+using Microsoft.Extensions.Logging;
+using Orleans.Concurrency;
 
-namespace BatchProcessing.ApiService.Grains;
+namespace BatchProcessing.Grains;
 
 internal class EngineGrain(ILogger<EngineGrain> logger) : Grain, IEngineGrain
 {
@@ -16,13 +18,13 @@ internal class EngineGrain(ILogger<EngineGrain> logger) : Grain, IEngineGrain
     private int _recordCount;
     private int _recordsProcessed;
 
-    private AnalysisStatus _status = AnalysisStatus.NotStarted;
+    private AnalysisStatusEnum _status = AnalysisStatusEnum.NotStarted;
 
     public Task RunAnalysis(int recordsToSimulate)
     {
         if (_backgroundTask is null or { IsCompleted: true })
         {
-            _status = AnalysisStatus.InProgress;
+            _status = AnalysisStatusEnum.InProgress;
 
             _recordsToSimulate = recordsToSimulate;   
             _backgroundTask = ProcessBackgroundTask();
@@ -71,7 +73,7 @@ internal class EngineGrain(ILogger<EngineGrain> logger) : Grain, IEngineGrain
             logger.LogInformation("{ProcessId} - Processed {Count} of {Total} records", this.GetPrimaryKey(), _recordsProcessed, _recordCount);
         }
 
-        _status = AnalysisStatus.Completed;
+        _status = AnalysisStatusEnum.Completed;
     }
 
     private Task<int> GetRecordCount()
