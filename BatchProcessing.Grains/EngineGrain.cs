@@ -1,4 +1,5 @@
-﻿using Orleans.Concurrency;
+﻿using Microsoft.Extensions.Logging;
+using Orleans.Concurrency;
 
 namespace BatchProcessing.ApiService.Grains;
 
