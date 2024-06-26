@@ -9,10 +9,14 @@ builder.UseOrleans(orleansBuilder =>
     if (builder.Environment.IsDevelopment())
     {
         orleansBuilder.ConfigureEndpoints(Random.Shared.Next(10_000, 50_000), Random.Shared.Next(10_000, 50_000));
+        orleansBuilder.UseDashboard(options => { options.HostSelf = true; });
     }
 });
 
-var host = builder.Build();
+var app = builder.Build();
 
-host.Run();
+app.MapDefaultEndpoints();
 
+app.Map("/dashboard", x => x.UseOrleansDashboard());
+
+app.Run();
