@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BatchProcessing.ApiService\BatchProcessing.ApiService.csproj" />
+    <ProjectReference Include="..\BatchProcessing.Grains\BatchProcessing.Grains.csproj" />
     <ProjectReference Include="..\BatchProcessing.ServiceDefaults\BatchProcessing.ServiceDefaults.csproj" />
   </ItemGroup>
 </Project>

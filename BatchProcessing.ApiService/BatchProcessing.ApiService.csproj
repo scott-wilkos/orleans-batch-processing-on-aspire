@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\BatchProcessing.Abstractions\BatchProcessing.Abstractions.csproj" />
     <ProjectReference Include="..\BatchProcessing.Grains\BatchProcessing.Grains.csproj" />
     <ProjectReference Include="..\BatchProcessing.ServiceDefaults\BatchProcessing.ServiceDefaults.csproj" />
   </ItemGroup>

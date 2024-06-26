@@ -1,4 +1,4 @@
-using BatchProcessing.ApiService.Grains;
+using BatchProcessing.Abstractions.Grains;
 
 var builder = WebApplication.CreateBuilder(args);
 

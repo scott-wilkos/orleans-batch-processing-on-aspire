@@ -1,4 +1,4 @@
-﻿namespace BatchProcessing.ApiService.Grains;
+﻿namespace BatchProcessing.Abstractions.Grains;
 
 public interface IEngineWorkerGrain : IGrainWithStringKey
 {

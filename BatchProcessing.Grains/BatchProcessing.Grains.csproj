@@ -10,4 +10,8 @@
     <PackageReference Include="Microsoft.Orleans.Sdk" Version="8.1.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\BatchProcessing.Abstractions\BatchProcessing.Abstractions.csproj" />
+  </ItemGroup>
+
 </Project>
