@@ -6,7 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-builder.Services.AddGrainDataService();
+builder.Services.AddBatchProcessingEngineApplication(builder.Configuration);
 
 builder.AddKeyedRedisClient("redis");
 

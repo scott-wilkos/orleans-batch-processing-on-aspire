@@ -1,10 +1,12 @@
-﻿using BatchProcessing.Abstractions.Grains;
+﻿using BatchProcessing.Abstractions.Configuration;
+using BatchProcessing.Abstractions.Grains;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Orleans.Concurrency;
 
 namespace BatchProcessing.Grains;
 
-internal class EngineGrain(ILogger<EngineGrain> logger) : Grain, IEngineGrain
+internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> logger) : Grain, IEngineGrain
 {
     // This is only used to allow for varying process sizes
     private int _recordsToSimulate;
@@ -13,7 +15,7 @@ internal class EngineGrain(ILogger<EngineGrain> logger) : Grain, IEngineGrain
     private Task? _backgroundTask;
 
     // Worker Count would be set through configuration and drives how many workers we have processing records
-    private readonly int _workerCount = 10;
+    private readonly int _workerCount = config.Value.WorkerCount;
 
     private int _recordCount;
     private int _recordsProcessed;
