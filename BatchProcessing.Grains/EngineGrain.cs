@@ -1,38 +1,53 @@
-﻿using BatchProcessing.Abstractions.Grains;
+﻿using BatchProcessing.Abstractions.Configuration;
+using BatchProcessing.Abstractions.Grains;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Orleans.Concurrency;
 
 namespace BatchProcessing.Grains;
 
-internal class EngineGrain(ILogger<EngineGrain> logger) : Grain, IEngineGrain
+/// <summary>
+/// The EngineGrain class is responsible for simulating the processing of records.
+/// It coordinates with the EngineGovernorGrain to ensure that the number of concurrently running engines does not exceed the allowed capacity.
+/// </summary>
+internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> logger) : Grain, IEngineGrain
 {
     // This is only used to allow for varying process sizes
     private int _recordsToSimulate;
-    
+
     private readonly CancellationTokenSource _shutdownCancellation = new();
     private Task? _backgroundTask;
 
     // Worker Count would be set through configuration and drives how many workers we have processing records
-    private readonly int _workerCount = 10;
+    private readonly int _workerCount = config.Value.WorkerCount;
 
     private int _recordCount;
     private int _recordsProcessed;
 
     private AnalysisStatusEnum _status = AnalysisStatusEnum.NotStarted;
 
+    /// <summary>
+    /// Initiates the analysis process with the specified number of records to simulate.
+    /// </summary>
+    /// <param name="recordsToSimulate">The number of records to simulate processing.</param>
+    /// <returns>A Task representing the asynchronous operation.</returns>
     public Task RunAnalysis(int recordsToSimulate)
     {
         if (_backgroundTask is null or { IsCompleted: true })
         {
-            _status = AnalysisStatusEnum.InProgress;
+            _status = AnalysisStatusEnum.NotStarted;
 
-            _recordsToSimulate = recordsToSimulate;   
+            _recordsToSimulate = recordsToSimulate;
             _backgroundTask = ProcessBackgroundTask();
         }
 
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Retrieves the current status of the engine.
+    /// </summary>
+    /// <returns>A Task containing the EngineStatusRecord with the current status.</returns>
     [ReadOnly]
     public Task<EngineStatusRecord> GetStatus()
     {
@@ -41,6 +56,10 @@ internal class EngineGrain(ILogger<EngineGrain> logger) : Grain, IEngineGrain
         return Task.FromResult(status);
     }
 
+    /// <summary>
+    /// Processes the background task for record analysis.
+    /// </summary>
+    /// <returns>A Task representing the asynchronous operation.</returns>
     private async Task ProcessBackgroundTask()
     {
         await Task.Yield();
@@ -49,8 +68,25 @@ internal class EngineGrain(ILogger<EngineGrain> logger) : Grain, IEngineGrain
 
         var workerTasks = new List<Task>();
 
+        var governor = GrainFactory.GetGrain<IEngineGovernorGrain>(0);
+
         while (!_shutdownCancellation.IsCancellationRequested)
         {
+            // Check with the Governor to see if we can start
+            if (_status == AnalysisStatusEnum.NotStarted)
+            {
+                var response = await governor.TryStartEngine(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed));
+
+                if (!response.Success)
+                {
+                    logger.LogInformation("{ProcessId} - Unable to start processing: {Reason}", this.GetPrimaryKey(), response.Reason);
+                    await Task.Delay(1000);
+                    continue;
+                }
+
+                _status = AnalysisStatusEnum.InProgress;
+            }
+
             var batch = await GetBatch();
 
             if (!batch.Any())
@@ -70,18 +106,29 @@ internal class EngineGrain(ILogger<EngineGrain> logger) : Grain, IEngineGrain
 
             _recordsProcessed += batch.Count;
 
-            logger.LogInformation("{ProcessId} - Processed {Count} of {Total} records", this.GetPrimaryKey(), _recordsProcessed, _recordCount);
+            // Update Governor with status
+            await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed));
         }
 
         _status = AnalysisStatusEnum.Completed;
+        // Update Governor with status
+        await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed));
     }
 
+    /// <summary>
+    /// Retrieves the total number of records to be processed.
+    /// </summary>
+    /// <returns>A Task containing the number of records to be processed.</returns>
     private Task<int> GetRecordCount()
     {
         // Would call and get # of records to be processed
         return Task.FromResult(_recordsToSimulate);
     }
 
+    /// <summary>
+    /// Retrieves a batch of records to process.
+    /// </summary>
+    /// <returns>A Task containing a list of records to process.</returns>
     private Task<List<AnalysisRecord>> GetBatch()
     {
         // Would call and get a batch of records to process
@@ -92,6 +139,12 @@ internal class EngineGrain(ILogger<EngineGrain> logger) : Grain, IEngineGrain
         return Task.FromResult(Enumerable.Range(0, 10).Select(_ => new AnalysisRecord(Guid.NewGuid())).ToList());
     }
 
+    /// <summary>
+    /// Handles the deactivation of the grain, ensuring that the background task is properly canceled and awaited.
+    /// </summary>
+    /// <param name="reason">The reason for deactivation.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A Task representing the asynchronous operation.</returns>
     public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)
     {
         _shutdownCancellation.Cancel();
