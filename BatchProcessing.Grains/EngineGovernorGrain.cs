@@ -25,7 +25,7 @@ internal class EngineGovernorGrain : IEngineGovernorGrain
         // Check to see if this engine is already in the state list
         if (_state.All(x => x.EngineStatus.Id != engineStatus.Id))
         {
-            _state.Add(new EngineGovernorStateRecord(engineStatus, DateTime.UtcNow));
+            _state.Add(new EngineGovernorStateRecord(engineStatus, engineStatus.CreatedOnUtc, DateTime.UtcNow));
         }
 
         // Check if we have capacity based on what is running
@@ -39,6 +39,23 @@ internal class EngineGovernorGrain : IEngineGovernorGrain
             }
 
             return Task.FromResult(new TryStartResponse(engineStatus.Id, false, "Engine at capacity"));
+        }
+
+        // check to see if this is the next available item to run based on created time
+        var nextAvailable = _state
+            .Where(x => x.EngineStatus.Status == AnalysisStatusEnum.NotStarted)
+            .MinBy(x => x.CreatedOn);
+
+        if (nextAvailable is not null && nextAvailable.EngineStatus.Id != engineStatus.Id)
+        {
+            // Update last updated time for the engine
+            var state = _state.FirstOrDefault(x => x.EngineStatus.Id == engineStatus.Id);
+            if (state is not null)
+            {
+                state.SetLastUpdated(DateTime.UtcNow);
+            }
+
+            return Task.FromResult(new TryStartResponse(engineStatus.Id, false, "Engine not next available"));
         }
 
         // Set the engine state to "InProgress"
