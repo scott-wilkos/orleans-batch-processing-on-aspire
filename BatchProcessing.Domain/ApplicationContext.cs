@@ -2,7 +2,7 @@
 
 namespace BatchProcessing.Domain;
 
-public class ApplicationContext : DbContext
+public class ApplicationContext(DbContextOptions<ApplicationContext> options) : DbContext(options)
 {
     public DbSet<BatchProcess> BatchProcesses { get; set; }
     

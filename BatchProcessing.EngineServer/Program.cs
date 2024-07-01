@@ -1,8 +1,11 @@
+using BatchProcessing.Domain;
 using BatchProcessing.Grains;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+builder.AddNpgsqlDbContext<ApplicationContext>("postgresDb");
 
 builder.Services.AddBatchProcessingEngineApplication(builder.Configuration);
 

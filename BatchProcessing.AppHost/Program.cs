@@ -2,6 +2,9 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var redis = builder.AddRedis("redis");
 
+var postgres = builder.AddPostgres("postgres");
+var postgresDb = postgres.AddDatabase("postgresDb");
+
 var orleans = builder.AddOrleans("orleans-engine")
     .WithClustering(redis);
 
@@ -12,6 +15,7 @@ builder.AddProject<Projects.BatchProcessing_Dashboard>("dashboard")
 var engine = builder.AddProject<Projects.BatchProcessing_EngineServer>("engine")
     .WithReference(redis)
     .WithReference(orleans)
+    .WithReference(postgresDb)
     .WithReplicas(3);
 
 var apiService = builder.AddProject<Projects.BatchProcessing_ApiService>("api-service")
