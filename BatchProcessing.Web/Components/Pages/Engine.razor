@@ -40,7 +40,9 @@
 
     private int _recordsToCreate = 300;
 
-    private bool _isSubmitting = false;
+    private bool _isSubmitting;
+
+    private bool _statusCheckRunning;
 
     protected override Task OnInitializedAsync()
     {
@@ -48,22 +50,42 @@
         return Task.CompletedTask;
     }
 
+    // Check the status of the engine runs
+    // NOTE: this is not a great way to do this.  There's a variety of ways to improve this, but it's simple for now
     private async Task CheckStatus()
     {
-        foreach (var item in _engineRuns ?? new())
+        if (_statusCheckRunning)
+            return;
+
+        List<Task<EngineStatusRecord?>> tasks = new();
+
+        foreach (var item in _engineRuns)
         {
             if (item.Status == AnalysisStatus.Completed)
             {
                 continue;
             }
 
-            var run = await Api.GetBatchProcessingStatusAsync(item.Id);
-            if (run != null)
+            tasks.Add(Api.GetBatchProcessingStatusAsync(item.Id));
+        }
+
+        var results = await Task.WhenAll(tasks);
+
+        foreach (var result in results)
+        {
+            if (result != null)
             {
-                item.Status = run.Status;
-                item.RecordsProcessed = run.RecordsProcessed;
+                var existing = _engineRuns.FirstOrDefault(x => x.Id == result.Id);
+                if (existing != null)
+                {
+                    _engineRuns.Remove(existing);
+                }
+
+                _engineRuns.Add(result);
             }
         }
+
+        _statusCheckRunning = false;
 
         await InvokeAsync(StateHasChanged);
     }
