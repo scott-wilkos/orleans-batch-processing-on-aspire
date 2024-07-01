@@ -46,7 +46,7 @@ internal class EngineGovernorGrain : IEngineGovernorGrain
         }
 
         // Set the engine state to "InProgress"
-        state.SetState(AnalysisStatusEnum.InProgress);
+        state.SetInProgress();
 
         return Task.FromResult(new TryStartResponse(engineStatus.Id, true, string.Empty));
     }
@@ -60,7 +60,7 @@ internal class EngineGovernorGrain : IEngineGovernorGrain
     {
         if (_state.TryGetValue(engineStatus.Id, out var state))
         {
-            state.SetState(engineStatus.Status);
+            state.SetStatus(engineStatus.Status);
         }
 
         return Task.CompletedTask;

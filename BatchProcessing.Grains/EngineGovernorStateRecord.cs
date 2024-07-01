@@ -13,7 +13,13 @@ public class EngineGovernorStateRecord(EngineStatusRecord engineStatus, DateTime
 
     public void SetLastUpdated(DateTime lastUpdated) => LastUpdated = lastUpdated;
 
-    public void SetState(AnalysisStatusEnum newState)
+    public void SetInProgress()
+    {
+        EngineStatus = EngineStatus with { Status = AnalysisStatusEnum.InProgress };
+        SetLastUpdated(DateTime.UtcNow);
+    }
+
+    public void SetStatus(AnalysisStatusEnum newState)
     {
         EngineStatus = EngineStatus with { Status = newState };
         SetLastUpdated(DateTime.UtcNow);
