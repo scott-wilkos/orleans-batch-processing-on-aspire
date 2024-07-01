@@ -9,7 +9,7 @@ builder.AddProject<Projects.BatchProcessing_Dashboard>("dashboard")
     .WithReference(redis)
     .WithReference(orleans);
 
-var engine = builder.AddProject<Projects.BatchProcessing_Engine>("engine")
+var engine = builder.AddProject<Projects.BatchProcessing_EngineServer>("engine")
     .WithReference(redis)
     .WithReference(orleans)
     .WithReplicas(3);

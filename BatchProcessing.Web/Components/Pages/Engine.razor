@@ -10,7 +10,7 @@
 <h1>Batch Engine Simulator</h1>
 
 <InputNumber @bind-Value="@_recordsToCreate"></InputNumber>
-<button class="btn btn-primary" @onclick="@RunAnalysis">Simulate Batch Run</button>
+<button class="btn btn-primary" @onclick="@RunAnalysis" disabled="@_isSubmitting">Simulate Batch Run</button>
 
 <table class="table">
     <thead>
@@ -40,6 +40,8 @@
 
     private int _recordsToCreate = 300;
 
+    private bool _isSubmitting = false;
+
     protected override Task OnInitializedAsync()
     {
         _timer = new Timer(async _ => await CheckStatus(), null, 0, 1000);
@@ -50,7 +52,7 @@
     {
         foreach (var item in _engineRuns ?? new())
         {
-            if(item.Status == AnalysisStatus.Completed)
+            if (item.Status == AnalysisStatus.Completed)
             {
                 continue;
             }
@@ -66,23 +68,21 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private void RunAnalysis()
+    private async Task RunAnalysis()
     {
-        InvokeAsync(async () =>
+        _isSubmitting = true;
+
+        var runGuid = await Api.StartBatchProcessingAsync(_recordsToCreate);
+
+        var run = await Api.GetBatchProcessingStatusAsync(runGuid);
+
+        if (run != null)
         {
-            var runGuid = await Api.StartBatchProcessingAsync(_recordsToCreate);
+            _engineRuns.Add(run);
+        }
 
-            var run = await Api.GetBatchProcessingStatusAsync(runGuid);
-
-            if (run != null)
-            {
-                _engineRuns.Add(run);
-            }
-
-            await InvokeAsync(StateHasChanged);
-        });
-
-
+        _isSubmitting = false;
+        await InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()

@@ -1,5 +1,3 @@
-using System;
-
 using BatchProcessing.Grains;
 
 var builder = WebApplication.CreateBuilder(args);
