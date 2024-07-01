@@ -4,6 +4,10 @@ namespace BatchProcessing.Domain;
 
 public class ApplicationContext : DbContext
 {
+    public DbSet<BatchProcess> BatchProcesses { get; set; }
+    
+    public DbSet<BatchProcessItem> BatchProcessItems { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
     }

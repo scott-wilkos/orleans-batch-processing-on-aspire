@@ -25,7 +25,6 @@ internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> l
     private int _recordsProcessed;
     private readonly DateTime _createdOn = DateTime.UtcNow;
 
-
     private AnalysisStatusEnum _status = AnalysisStatusEnum.NotStarted;
 
     /// <summary>
