@@ -23,6 +23,8 @@ internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> l
 
     private int _recordCount;
     private int _recordsProcessed;
+    private readonly DateTime _createdOn = DateTime.UtcNow;
+
 
     private AnalysisStatusEnum _status = AnalysisStatusEnum.NotStarted;
 
@@ -51,7 +53,7 @@ internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> l
     [ReadOnly]
     public Task<EngineStatusRecord> GetStatus()
     {
-        var status = new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed);
+        var status = new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed, _createdOn);
 
         return Task.FromResult(status);
     }
@@ -75,7 +77,7 @@ internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> l
             // Check with the Governor to see if we can start
             if (_status == AnalysisStatusEnum.NotStarted)
             {
-                var response = await governor.TryStartEngine(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed));
+                var response = await governor.TryStartEngine(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed, _createdOn));
 
                 if (!response.Success)
                 {
@@ -107,12 +109,12 @@ internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> l
             _recordsProcessed += batch.Count;
 
             // Update Governor with status
-            await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed));
+            await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed, _createdOn));
         }
 
         _status = AnalysisStatusEnum.Completed;
         // Update Governor with status
-        await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed));
+        await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed, _createdOn));
     }
 
     /// <summary>
