@@ -10,13 +10,19 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BatchProcessing.ApiService"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BatchProcessing.Web", "BatchProcessing.Web\BatchProcessing.Web.csproj", "{D626F904-853D-4F4E-94E6-B53F9E8BA1C1}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BatchProcessing.Engine", "BatchProcessing.Engine\BatchProcessing.Engine.csproj", "{15F207EA-81AE-47E4-8F07-745686D2682E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BatchProcessing.EngineServer", "BatchProcessing.EngineServer\BatchProcessing.EngineServer.csproj", "{15F207EA-81AE-47E4-8F07-745686D2682E}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BatchProcessing.Grains", "BatchProcessing.Grains\BatchProcessing.Grains.csproj", "{6C6EBEAD-1296-469C-AD16-518C8284EEB8}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BatchProcessing.Abstractions", "BatchProcessing.Abstractions\BatchProcessing.Abstractions.csproj", "{16CE1C75-9BBC-4716-ABBF-8537335776CA}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BatchProcessing.Dashboard", "BatchProcessing.Dashboard\BatchProcessing.Dashboard.csproj", "{10DD5AFA-298B-4E59-854B-1465241F8EB2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Hosting", "Hosting", "{9DE536E2-5219-4834-95FA-73C6E0342183}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Common", "Common", "{9640F068-2490-4BBB-80FC-218B5B5DDAE1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Application", "Application", "{7C2BC223-80EC-496C-8246-00B8C15E1114}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -59,6 +65,16 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{7341BB14-6A53-4F76-9A32-BA3983A933D8} = {9DE536E2-5219-4834-95FA-73C6E0342183}
+		{93164E97-6D73-465F-877B-A478AF53AFA5} = {9640F068-2490-4BBB-80FC-218B5B5DDAE1}
+		{1295453B-7FEC-45FE-983B-F0F3C190B576} = {9DE536E2-5219-4834-95FA-73C6E0342183}
+		{D626F904-853D-4F4E-94E6-B53F9E8BA1C1} = {9DE536E2-5219-4834-95FA-73C6E0342183}
+		{15F207EA-81AE-47E4-8F07-745686D2682E} = {9DE536E2-5219-4834-95FA-73C6E0342183}
+		{6C6EBEAD-1296-469C-AD16-518C8284EEB8} = {7C2BC223-80EC-496C-8246-00B8C15E1114}
+		{16CE1C75-9BBC-4716-ABBF-8537335776CA} = {9640F068-2490-4BBB-80FC-218B5B5DDAE1}
+		{10DD5AFA-298B-4E59-854B-1465241F8EB2} = {9DE536E2-5219-4834-95FA-73C6E0342183}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {19770AAE-F539-4FFF-9397-7F9C38F3EC0D}
