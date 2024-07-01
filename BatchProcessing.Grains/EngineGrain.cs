@@ -25,7 +25,6 @@ internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> l
     private int _recordsProcessed;
     private readonly DateTime _createdOn = DateTime.UtcNow;
 
-
     private AnalysisStatusEnum _status = AnalysisStatusEnum.NotStarted;
 
     /// <summary>
@@ -68,8 +67,7 @@ internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> l
 
         _recordCount = await GetRecordCount();
 
-        var workerTasks = new List<Task>();
-
+        var workerTasks = new List<Task>(_workerCount);
         var governor = GrainFactory.GetGrain<IEngineGovernorGrain>(0);
 
         while (!_shutdownCancellation.IsCancellationRequested)
@@ -91,13 +89,14 @@ internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> l
 
             var batch = await GetBatch();
 
-            if (!batch.Any())
+            if (batch.Count == 0)
             {
                 break;
             }
 
             logger.LogInformation("{ProcessId} - Processing batch of {Count} records", this.GetPrimaryKey(), batch.Count);
 
+            workerTasks.Clear();
             for (var i = 0; i < _workerCount; i++)
             {
                 var worker = GrainFactory.GetGrain<IEngineWorkerGrain>($"{this.GetGrainId()}-{i}");
@@ -121,24 +120,24 @@ internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> l
     /// Retrieves the total number of records to be processed.
     /// </summary>
     /// <returns>A Task containing the number of records to be processed.</returns>
-    private Task<int> GetRecordCount()
+    private ValueTask<int> GetRecordCount()
     {
         // Would call and get # of records to be processed
-        return Task.FromResult(_recordsToSimulate);
+        return ValueTask.FromResult(_recordsToSimulate);
     }
 
     /// <summary>
     /// Retrieves a batch of records to process.
     /// </summary>
     /// <returns>A Task containing a list of records to process.</returns>
-    private Task<List<AnalysisRecord>> GetBatch()
+    private ValueTask<List<AnalysisRecord>> GetBatch()
     {
         // Would call and get a batch of records to process
         // Short circuit if we have gotten "all" of the records
         if (_recordsProcessed >= _recordCount)
-            return Task.FromResult(new List<AnalysisRecord>());
+            return ValueTask.FromResult(new List<AnalysisRecord>());
 
-        return Task.FromResult(Enumerable.Range(0, 10).Select(_ => new AnalysisRecord(Guid.NewGuid())).ToList());
+        return ValueTask.FromResult(Enumerable.Range(0, 10).Select(_ => new AnalysisRecord(Guid.NewGuid())).ToList());
     }
 
     /// <summary>
