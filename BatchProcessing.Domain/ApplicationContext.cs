@@ -1,12 +1,19 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MongoDB.Driver;
+using MongoDB.EntityFrameworkCore.Extensions;
 
 namespace BatchProcessing.Domain;
 
-public class ApplicationContext(DbContextOptions<ApplicationContext> options) : DbContext(options)
+public class ApplicationContext(DbContextOptions options) : DbContext(options)
 {
-    public DbSet<BatchProcess> BatchProcesses { get; set; }
-    
-    public DbSet<BatchProcessItem> BatchProcessItems { get; set; }
+    public static ApplicationContext Create(IMongoClient mongoClient) => new ApplicationContext(
+        new DbContextOptionsBuilder<ApplicationContext>()
+            .UseMongoDB(mongoClient, "mongoDb")
+            .Options);
+
+    public DbSet<BatchProcess> BatchProcesses => Set<BatchProcess>();
+
+    public DbSet<BatchProcessItem> BatchProcessItems => Set<BatchProcessItem>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -14,36 +21,7 @@ public class ApplicationContext(DbContextOptions<ApplicationContext> options) : 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<BatchProcess>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.Id)
-                .ValueGeneratedOnAdd();
-
-            entity.Property(e => e.CreatedOn)
-                .IsRequired();
-
-            entity.Property(e => e.Status)
-                .IsRequired();
-
-            entity.HasMany(e => e.Items)
-                .WithOne()
-                .HasForeignKey(e => e.BatchProcessId);
-        });
-
-        modelBuilder.Entity<BatchProcessItem>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.Id)
-                .ValueGeneratedOnAdd();
-
-            entity.Property(e => e.BatchProcessId)
-                .IsRequired();
-
-            entity.Property(e => e.Status)
-                .IsRequired();
-        });
+        modelBuilder.Entity<BatchProcess>().ToCollection(nameof(BatchProcess));
+        modelBuilder.Entity<BatchProcessItem>().ToCollection(nameof(BatchProcessItem));
     }
 }

@@ -5,7 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-builder.AddNpgsqlDbContext<ApplicationContext>("postgresDb");
+builder.AddDomainInfrastructure();
 
 builder.Services.AddBatchProcessingEngineApplication(builder.Configuration);
 
