@@ -5,8 +5,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 var redis = builder.AddRedis("redis");
 
 var mongoDb = builder
-    .AddMongoDB("mongoDb")
-    .WithMongoExpress();
+    .AddMongoDB("mongoDb");
 
 if (builder.Environment.IsDevelopment())
 {

@@ -1,7 +1,10 @@
 ﻿using BatchProcessing.Abstractions.Configuration;
 using BatchProcessing.Abstractions.Grains;
+using BatchProcessing.Domain;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Trace;
+
 using Orleans.Concurrency;
 
 namespace BatchProcessing.Grains;
@@ -10,7 +13,7 @@ namespace BatchProcessing.Grains;
 /// The EngineGrain class is responsible for simulating the processing of records.
 /// It coordinates with the EngineGovernorGrain to ensure that the number of concurrently running engines does not exceed the allowed capacity.
 /// </summary>
-internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> logger) : Grain, IEngineGrain
+internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig> config, ILogger<EngineGrain> logger) : Grain, IEngineGrain
 {
     // This is only used to allow for varying process sizes
     private int _recordsToSimulate;
@@ -32,17 +35,54 @@ internal class EngineGrain(IOptions<EngineConfig> config, ILogger<EngineGrain> l
     /// </summary>
     /// <param name="recordsToSimulate">The number of records to simulate processing.</param>
     /// <returns>A Task representing the asynchronous operation.</returns>
-    public Task RunAnalysis(int recordsToSimulate)
+    public async Task RunAnalysis(int recordsToSimulate)
     {
         if (_backgroundTask is null or { IsCompleted: true })
         {
+            await CreateRecords(recordsToSimulate);
+
             _status = AnalysisStatusEnum.NotStarted;
 
             _recordsToSimulate = recordsToSimulate;
             _backgroundTask = ProcessBackgroundTask();
         }
+    }
 
-        return Task.CompletedTask;
+    private async Task CreateRecords(int recordsToSimulate)
+    {
+        await using var context = contextFactory.Create();
+
+        var batchProcess = new BatchProcess
+        {
+            Id = this.GetPrimaryKey(),
+            Status = BatchProcessStatusEnum.Created,
+            CreatedOn = DateTime.UtcNow
+        };
+        context.BatchProcesses.Add(batchProcess);
+
+        await context.SaveChangesAsync();
+
+        var items = new List<BatchProcessItem>();
+
+        for (var i = 0; i < recordsToSimulate; i++)
+        {
+            var item = new BatchProcessItem
+            {
+                Id = Guid.NewGuid(),
+                BatchProcessId = batchProcess.Id,
+                Status = BatchProcessItemStatusEnum.Created,
+                CreatedOnUtc = DateTime.UtcNow
+            };
+            items.Add(item);
+        }
+
+        await context.BulkInsert(items);
+
+        Console.WriteLine($"Created {recordsToSimulate} records for batch process {batchProcess.Id}");
+        logger.LogInformation("Created {RecordCount} records for batch process {BatchProcessId}", recordsToSimulate, batchProcess.Id);
+
+        var records = context.BatchProcessItems.Count();
+        logger.LogInformation("Total records: {RecordCount}", records);
     }
 
     /// <summary>

@@ -8,12 +8,24 @@ public static class DependencyInjection
 {
     public static void AddDomainInfrastructure(this IHostApplicationBuilder builder)
     {
-        builder.AddMongoDBClient("mongodb");
+        builder.AddMongoDBClient("mongoDb");
 
         builder.Services.AddScoped<ApplicationContext>(opt =>
         {
             var client = opt.GetRequiredService<IMongoClient>();
-            return ApplicationContext.Create(client);
+            var mongoDatabase = client.GetDatabase("mongoDb");
+
+            return ApplicationContext.Create(client, mongoDatabase);
         });
+
+        builder.Services.AddSingleton<IMongoDatabase>(opt =>
+        {
+            var client = opt.GetRequiredService<IMongoClient>();
+            var mongoDatabase = client.GetDatabase("mongoDb");
+
+            return mongoDatabase;
+        });
+
+        builder.Services.AddScoped<ContextFactory>();
     }
 }

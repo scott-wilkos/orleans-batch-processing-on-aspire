@@ -7,4 +7,6 @@ public class BatchProcessItem
     public Guid BatchProcessId { get; set; }
 
     public BatchProcessItemStatusEnum Status { get; set; }
+
+    public DateTime CreatedOnUtc { get; set; }
 }
