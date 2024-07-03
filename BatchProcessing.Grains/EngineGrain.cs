@@ -1,6 +1,7 @@
 ﻿using BatchProcessing.Abstractions.Configuration;
 using BatchProcessing.Abstractions.Grains;
 using BatchProcessing.Domain;
+using BatchProcessing.Domain.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenTelemetry.Trace;
@@ -62,6 +63,11 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
 
         await context.SaveChangesAsync();
 
+        await CreateAndPersistRecords(recordsToSimulate, batchProcess, context);
+    }
+
+    private static async Task CreateAndPersistRecords(int recordsToSimulate, BatchProcess batchProcess, ApplicationContext context)
+    {
         var items = new List<BatchProcessItem>();
 
         for (var i = 0; i < recordsToSimulate; i++)
@@ -77,12 +83,6 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
         }
 
         await context.BulkInsert(items);
-
-        Console.WriteLine($"Created {recordsToSimulate} records for batch process {batchProcess.Id}");
-        logger.LogInformation("Created {RecordCount} records for batch process {BatchProcessId}", recordsToSimulate, batchProcess.Id);
-
-        var records = context.BatchProcessItems.Count();
-        logger.LogInformation("Total records: {RecordCount}", records);
     }
 
     /// <summary>

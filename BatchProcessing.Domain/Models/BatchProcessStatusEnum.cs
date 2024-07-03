@@ -1,4 +1,4 @@
-﻿namespace BatchProcessing.Domain;
+﻿namespace BatchProcessing.Domain.Models;
 
 public enum BatchProcessStatusEnum
 {

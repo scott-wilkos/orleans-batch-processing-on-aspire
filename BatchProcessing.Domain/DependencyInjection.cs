@@ -4,8 +4,15 @@ using MongoDB.Driver;
 
 namespace BatchProcessing.Domain;
 
+/// <summary>
+/// Provides extension methods for setting up domain infrastructure services in an <see cref="IHostApplicationBuilder"/>.
+/// </summary>
 public static class DependencyInjection
 {
+    /// <summary>
+    /// Adds the domain infrastructure services to the specified <see cref="IHostApplicationBuilder"/>.
+    /// </summary>
+    /// <param name="builder">The <see cref="IHostApplicationBuilder"/> to add services to.</param>
     public static void AddDomainInfrastructure(this IHostApplicationBuilder builder)
     {
         builder.AddMongoDBClient("mongoDb");
