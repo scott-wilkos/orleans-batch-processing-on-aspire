@@ -3,6 +3,8 @@ using BatchProcessing.Abstractions.Grains;
 using BatchProcessing.Domain;
 using BatchProcessing.Domain.Models;
 using BatchProcessing.Grains.Services;
+
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -16,9 +18,6 @@ namespace BatchProcessing.Grains;
 /// </summary>
 internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig> config, ILogger<EngineGrain> logger) : Grain, IEngineGrain
 {
-    // This is only used to allow for varying process sizes
-    private int _recordsToSimulate;
-
     private readonly CancellationTokenSource _shutdownCancellation = new();
     private Task? _backgroundTask;
 
@@ -44,7 +43,6 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
 
             _status = AnalysisStatusEnum.NotStarted;
 
-            _recordsToSimulate = recordsToSimulate;
             _backgroundTask = ProcessBackgroundTask();
         }
     }
@@ -70,12 +68,6 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
     {
         var items = BogusService.Generate(batchProcess.Id, recordsToSimulate);
 
-        for (var i = 0; i < recordsToSimulate; i++)
-        {
-            var item = GetBatchProcessItem(batchProcess);
-            items.Add(item);
-        }
-
         var batchSize = 100;
         var batches = items.Chunk(batchSize);
 
@@ -93,18 +85,6 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
     {
         await using var context = contextFactory.Create();
         context.BulkInsert(items);
-    }
-
-    private static BatchProcessItem GetBatchProcessItem(BatchProcess batchProcess)
-    {
-        var item = new BatchProcessItem
-        {
-            Id = Guid.NewGuid(),
-            BatchProcessId = batchProcess.Id,
-            Status = BatchProcessItemStatusEnum.Created,
-            CreatedOnUtc = DateTime.UtcNow
-        };
-        return item;
     }
 
     /// <summary>
@@ -150,7 +130,7 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
                 _status = AnalysisStatusEnum.InProgress;
             }
 
-            var batch = await GetBatch();
+            var batch = await GetBatch(_workerCount);
 
             if (!batch.Any())
             {
@@ -159,12 +139,15 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
 
             logger.LogInformation("{ProcessId} - Processing batch of {Count} records", this.GetPrimaryKey(), batch.Count);
 
-            for (var i = 0; i < _workerCount; i++)
-            {
-                var worker = GrainFactory.GetGrain<IEngineWorkerGrain>($"{this.GetGrainId()}-{i}");
-                workerTasks.Add(worker.DoWork());
-            }
+            int i = 0;
 
+            foreach (var item in batch)
+            {
+                var worker = GrainFactory.GetGrain<IEngineWorkerGrain>($"{this.GetPrimaryKey()}-{i}");
+
+                workerTasks.Add(worker.DoWork(item.Id));
+                i++;
+            }
             await Task.WhenAll(workerTasks);
 
             _recordsProcessed += batch.Count;
@@ -173,33 +156,56 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
             await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed, _createdOn));
         }
 
+        await SetCompleted(governor);
+    }
+
+    private async Task SetCompleted(IEngineGovernorGrain governor)
+    {
+        await using var context = contextFactory.Create();
+
+        var batchProcess = await context.BatchProcesses.FindAsync(this.GetPrimaryKey());
+
+        if (batchProcess == null)
+            throw new InvalidOperationException("Batch Process not found");
+
+        batchProcess.Status = BatchProcessStatusEnum.Completed;
+        await context.SaveChangesAsync();
+
         _status = AnalysisStatusEnum.Completed;
         // Update Governor with status
         await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed, _createdOn));
+
+        logger.LogInformation("{ProcessId} - Analysis completed", this.GetPrimaryKey());
     }
 
     /// <summary>
     /// Retrieves the total number of records to be processed.
     /// </summary>
     /// <returns>A Task containing the number of records to be processed.</returns>
-    private Task<int> GetRecordCount()
+    private async Task<int> GetRecordCount()
     {
-        // Would call and get # of records to be processed
-        return Task.FromResult(_recordsToSimulate);
+        var processId = this.GetPrimaryKey();
+        var context = contextFactory.Create();
+
+        return await context.BatchProcessItems.CountAsync(bpi => bpi.BatchProcessId == processId);
     }
 
     /// <summary>
     /// Retrieves a batch of records to process.
     /// </summary>
+    /// <param name="workerCount"></param>
     /// <returns>A Task containing a list of records to process.</returns>
-    private Task<List<AnalysisRecord>> GetBatch()
+    private async Task<List<AnalysisRecord>> GetBatch(int workerCount)
     {
-        // Would call and get a batch of records to process
-        // Short circuit if we have gotten "all" of the records
-        if (_recordsProcessed >= _recordCount)
-            return Task.FromResult(new List<AnalysisRecord>());
+        await using var context = contextFactory.Create();
 
-        return Task.FromResult(Enumerable.Range(0, 10).Select(_ => new AnalysisRecord(Guid.NewGuid())).ToList());
+        var batch = await context.BatchProcessItems
+            .Where(bpi => bpi.BatchProcessId == this.GetPrimaryKey() && bpi.Status == BatchProcessItemStatusEnum.Created)
+            .Select(bpi => bpi.Id)
+            .Take(workerCount)
+            .ToListAsync();
+
+        return batch.Select(bpi => new AnalysisRecord(bpi)).ToList();
     }
 
     /// <summary>
