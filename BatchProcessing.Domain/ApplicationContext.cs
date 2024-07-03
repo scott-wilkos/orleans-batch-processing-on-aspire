@@ -51,7 +51,12 @@ public sealed class ApplicationContext : DbContext
     public async Task BulkInsert(IEnumerable<BatchProcessItem> items)
     {
         var entities = _mongoDatabase.GetCollection<BatchProcessItem>(nameof(BatchProcessItem));
-        await entities.InsertManyAsync(items);
+
+        var batches = items.Chunk(100);
+        foreach (var batch in batches)
+        {
+            entities.InsertMany(batch);
+        }
     }
 
     /// <summary>

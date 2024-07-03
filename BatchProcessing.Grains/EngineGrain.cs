@@ -2,9 +2,9 @@
 using BatchProcessing.Abstractions.Grains;
 using BatchProcessing.Domain;
 using BatchProcessing.Domain.Models;
+using BatchProcessing.Grains.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using OpenTelemetry.Trace;
 
 using Orleans.Concurrency;
 
@@ -68,21 +68,27 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
 
     private static async Task CreateAndPersistRecords(int recordsToSimulate, BatchProcess batchProcess, ApplicationContext context)
     {
-        var items = new List<BatchProcessItem>();
+        var items = BogusService.Generate(batchProcess.Id, recordsToSimulate);
 
         for (var i = 0; i < recordsToSimulate; i++)
         {
-            var item = new BatchProcessItem
-            {
-                Id = Guid.NewGuid(),
-                BatchProcessId = batchProcess.Id,
-                Status = BatchProcessItemStatusEnum.Created,
-                CreatedOnUtc = DateTime.UtcNow
-            };
+            var item = GetBatchProcessItem(batchProcess);
             items.Add(item);
         }
 
         await context.BulkInsert(items);
+    }
+
+    private static BatchProcessItem GetBatchProcessItem(BatchProcess batchProcess)
+    {
+        var item = new BatchProcessItem
+        {
+            Id = Guid.NewGuid(),
+            BatchProcessId = batchProcess.Id,
+            Status = BatchProcessItemStatusEnum.Created,
+            CreatedOnUtc = DateTime.UtcNow
+        };
+        return item;
     }
 
     /// <summary>

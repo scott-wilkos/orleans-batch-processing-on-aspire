@@ -9,4 +9,6 @@ public class BatchProcessItem
     public BatchProcessItemStatusEnum Status { get; set; }
 
     public DateTime CreatedOnUtc { get; set; }
+
+    public Person Person { get; set; }
 }
