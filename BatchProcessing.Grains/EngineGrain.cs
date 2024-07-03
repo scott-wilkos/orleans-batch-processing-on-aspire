@@ -63,10 +63,10 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
 
         await context.SaveChangesAsync();
 
-        await CreateAndPersistRecords(recordsToSimulate, batchProcess, context);
+        await CreateAndPersistRecords(recordsToSimulate, batchProcess, contextFactory);
     }
 
-    private static async Task CreateAndPersistRecords(int recordsToSimulate, BatchProcess batchProcess, ApplicationContext context)
+    private static async Task CreateAndPersistRecords(int recordsToSimulate, BatchProcess batchProcess, ContextFactory contextFactory)
     {
         var items = BogusService.Generate(batchProcess.Id, recordsToSimulate);
 
@@ -76,7 +76,23 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
             items.Add(item);
         }
 
-        await context.BulkInsert(items);
+        var batchSize = 100;
+        var batches = items.Chunk(batchSize);
+
+        List<Task> tasks = new();
+
+        foreach (var batch in batches)
+        {
+            tasks.Add(PersistRecords(batch, contextFactory));
+        }
+
+        await Task.WhenAll(tasks);
+    }
+
+    private static async Task PersistRecords(IEnumerable<BatchProcessItem> items, ContextFactory contextFactory)
+    {
+        await using var context = contextFactory.Create();
+        context.BulkInsert(items);
     }
 
     private static BatchProcessItem GetBatchProcessItem(BatchProcess batchProcess)

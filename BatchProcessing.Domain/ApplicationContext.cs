@@ -48,15 +48,10 @@ public sealed class ApplicationContext : DbContext
     /// </summary>
     /// <param name="items">The collection of <see cref="BatchProcessItem"/> to insert.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public async Task BulkInsert(IEnumerable<BatchProcessItem> items)
+    public void BulkInsert(IEnumerable<BatchProcessItem> items)
     {
         var entities = _mongoDatabase.GetCollection<BatchProcessItem>(nameof(BatchProcessItem));
-
-        var batches = items.Chunk(100);
-        foreach (var batch in batches)
-        {
-            entities.InsertMany(batch);
-        }
+        entities.InsertMany(items);
     }
 
     /// <summary>

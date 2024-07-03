@@ -10,5 +10,5 @@ public class BatchProcess
 
     public BatchProcessStatusEnum Status { get; set; }
 
-    public List<BatchProcessItem> Items { get; set; } = new List<BatchProcessItem>();
+    public List<BatchProcessItem> Items { get; set; } = new();
 }
