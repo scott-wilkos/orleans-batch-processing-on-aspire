@@ -1,8 +1,11 @@
+using BatchProcessing.Domain;
 using BatchProcessing.Grains;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+builder.AddDomainInfrastructure();
 
 builder.Services.AddBatchProcessingEngineApplication(builder.Configuration);
 

@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BatchProcessing.Abstractions\BatchProcessing.Abstractions.csproj" />
+    <ProjectReference Include="..\BatchProcessing.Domain\BatchProcessing.Domain.csproj" />
   </ItemGroup>
 
 </Project>

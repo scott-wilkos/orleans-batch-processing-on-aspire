@@ -17,9 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.AppHost" Version="8.0.1" />
-    <PackageReference Include="Aspire.Hosting.Orleans" Version="8.0.1" />
-    <PackageReference Include="Aspire.Hosting.Redis" Version="8.0.1" />
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="8.0.2" />
+    <PackageReference Include="Aspire.Hosting.MongoDB" Version="8.0.2" />
+    <PackageReference Include="Aspire.Hosting.Orleans" Version="8.0.2" />
+    <PackageReference Include="Aspire.Hosting.Redis" Version="8.0.2" />
   </ItemGroup>
 
 </Project>
