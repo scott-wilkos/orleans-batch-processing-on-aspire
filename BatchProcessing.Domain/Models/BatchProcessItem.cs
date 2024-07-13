@@ -1,4 +1,6 @@
-﻿namespace BatchProcessing.Domain.Models;
+﻿using BatchProcessing.Shared;
+
+namespace BatchProcessing.Domain.Models;
 
 public class BatchProcessItem
 {
@@ -9,4 +11,8 @@ public class BatchProcessItem
     public BatchProcessItemStatusEnum Status { get; set; }
 
     public DateTime CreatedOnUtc { get; set; }
+
+    public Person Person { get; set; }
+
+    public BatchProcessItemAnalysisResult? AnalysisResult { get; set; }
 }

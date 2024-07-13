@@ -1,4 +1,4 @@
-﻿namespace BatchProcessing.Abstractions.Grains;
+﻿namespace BatchProcessing.Shared;
 
 public enum AnalysisStatusEnum
 {

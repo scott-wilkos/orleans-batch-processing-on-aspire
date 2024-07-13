@@ -2,9 +2,11 @@
 using BatchProcessing.Abstractions.Grains;
 using BatchProcessing.Domain;
 using BatchProcessing.Domain.Models;
+using BatchProcessing.Grains.Services;
+using BatchProcessing.Shared;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using OpenTelemetry.Trace;
 
 using Orleans.Concurrency;
 
@@ -16,9 +18,6 @@ namespace BatchProcessing.Grains;
 /// </summary>
 internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig> config, ILogger<EngineGrain> logger) : Grain, IEngineGrain
 {
-    // This is only used to allow for varying process sizes
-    private int _recordsToSimulate;
-
     private readonly CancellationTokenSource _shutdownCancellation = new();
     private Task? _backgroundTask;
 
@@ -44,7 +43,6 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
 
             _status = AnalysisStatusEnum.NotStarted;
 
-            _recordsToSimulate = recordsToSimulate;
             _backgroundTask = ProcessBackgroundTask();
         }
     }
@@ -63,26 +61,30 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
 
         await context.SaveChangesAsync();
 
-        await CreateAndPersistRecords(recordsToSimulate, batchProcess, context);
+        await CreateAndPersistRecords(recordsToSimulate, batchProcess, contextFactory);
     }
 
-    private static async Task CreateAndPersistRecords(int recordsToSimulate, BatchProcess batchProcess, ApplicationContext context)
+    private static async Task CreateAndPersistRecords(int recordsToSimulate, BatchProcess batchProcess, ContextFactory contextFactory)
     {
-        var items = new List<BatchProcessItem>();
+        var items = BogusService.Generate(batchProcess.Id, recordsToSimulate);
 
-        for (var i = 0; i < recordsToSimulate; i++)
+        var batchSize = 100;
+        var batches = items.Chunk(batchSize);
+
+        List<Task> tasks = new();
+
+        foreach (var batch in batches)
         {
-            var item = new BatchProcessItem
-            {
-                Id = Guid.NewGuid(),
-                BatchProcessId = batchProcess.Id,
-                Status = BatchProcessItemStatusEnum.Created,
-                CreatedOnUtc = DateTime.UtcNow
-            };
-            items.Add(item);
+            tasks.Add(PersistRecords(batch, contextFactory));
         }
 
-        await context.BulkInsert(items);
+        await Task.WhenAll(tasks);
+    }
+
+    private static async Task PersistRecords(IEnumerable<BatchProcessItem> items, ContextFactory contextFactory)
+    {
+        await using var context = contextFactory.Create();
+        context.BulkInsert(items);
     }
 
     /// <summary>
@@ -125,10 +127,11 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
                     continue;
                 }
 
+                await SetStarted(governor);
                 _status = AnalysisStatusEnum.InProgress;
             }
 
-            var batch = await GetBatch();
+            var batch = await GetBatch(_workerCount);
 
             if (!batch.Any())
             {
@@ -137,12 +140,15 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
 
             logger.LogInformation("{ProcessId} - Processing batch of {Count} records", this.GetPrimaryKey(), batch.Count);
 
-            for (var i = 0; i < _workerCount; i++)
-            {
-                var worker = GrainFactory.GetGrain<IEngineWorkerGrain>($"{this.GetGrainId()}-{i}");
-                workerTasks.Add(worker.DoWork());
-            }
+            int i = 0;
 
+            foreach (var item in batch)
+            {
+                var worker = GrainFactory.GetGrain<IEngineWorkerGrain>($"{this.GetPrimaryKey()}-{i}");
+
+                workerTasks.Add(worker.DoWork(item.Id));
+                i++;
+            }
             await Task.WhenAll(workerTasks);
 
             _recordsProcessed += batch.Count;
@@ -151,33 +157,92 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
             await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed, _createdOn));
         }
 
-        _status = AnalysisStatusEnum.Completed;
-        // Update Governor with status
-        await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed, _createdOn));
+        await SetCompleted(governor);
+    }
+
+    private async Task SetCompleted(IEngineGovernorGrain governor)
+    {
+        try
+        {
+            await using var context = contextFactory.Create();
+
+            var key = this.GetPrimaryKey();
+
+            var batchProcess = await context.BatchProcesses.FirstOrDefaultAsync(bp => bp.Id == key);
+
+            if (batchProcess == null)
+                throw new InvalidOperationException("Batch Process not found");
+
+            var aggregateResult = await GenerateAggregateResult(batchProcess);
+
+            batchProcess.AggregateResult = aggregateResult;
+            batchProcess.CompletedOn = DateTime.UtcNow;
+            batchProcess.Status = BatchProcessStatusEnum.Completed;
+            await context.SaveChangesAsync();
+
+            _status = AnalysisStatusEnum.Completed;
+            await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed, _createdOn));
+
+            logger.LogInformation("{ProcessId} - Analysis completed", this.GetPrimaryKey());
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "{ProcessId} - Error completing analysis", this.GetPrimaryKey());
+            throw;
+        }
+    }
+
+    private async Task SetStarted(IEngineGovernorGrain governor)
+    {
+        try
+        {
+            await using var context = contextFactory.Create();
+
+            var key = this.GetPrimaryKey();
+
+            var batchProcess = await context.BatchProcesses.FirstOrDefaultAsync(bp => bp.Id == key);
+
+            if (batchProcess == null)
+                throw new InvalidOperationException("Batch Process not found");
+
+            batchProcess.Status = BatchProcessStatusEnum.Running;
+            await context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "{ProcessId} - Error starting analysis", this.GetPrimaryKey());
+            throw;
+        }
     }
 
     /// <summary>
     /// Retrieves the total number of records to be processed.
     /// </summary>
     /// <returns>A Task containing the number of records to be processed.</returns>
-    private Task<int> GetRecordCount()
+    private async Task<int> GetRecordCount()
     {
-        // Would call and get # of records to be processed
-        return Task.FromResult(_recordsToSimulate);
+        var processId = this.GetPrimaryKey();
+        var context = contextFactory.Create();
+
+        return await context.BatchProcessItems.CountAsync(bpi => bpi.BatchProcessId == processId);
     }
 
     /// <summary>
     /// Retrieves a batch of records to process.
     /// </summary>
+    /// <param name="workerCount"></param>
     /// <returns>A Task containing a list of records to process.</returns>
-    private Task<List<AnalysisRecord>> GetBatch()
+    private async Task<List<AnalysisRecord>> GetBatch(int workerCount)
     {
-        // Would call and get a batch of records to process
-        // Short circuit if we have gotten "all" of the records
-        if (_recordsProcessed >= _recordCount)
-            return Task.FromResult(new List<AnalysisRecord>());
+        await using var context = contextFactory.Create();
 
-        return Task.FromResult(Enumerable.Range(0, 10).Select(_ => new AnalysisRecord(Guid.NewGuid())).ToList());
+        var batch = await context.BatchProcessItems
+            .Where(bpi => bpi.BatchProcessId == this.GetPrimaryKey() && bpi.Status == BatchProcessItemStatusEnum.Created)
+            .Select(bpi => bpi.Id)
+            .Take(workerCount)
+            .ToListAsync();
+
+        return batch.Select(bpi => new AnalysisRecord(bpi)).ToList();
     }
 
     /// <summary>
@@ -194,5 +259,54 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
             // Wait for the background task to complete, but don't wait indefinitely.
             await task.WaitAsync(cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Generates the aggregate result for a given batch process.
+    /// </summary>
+    /// <param name="batchProcess">The batch process for which to generate the aggregate result.</param>
+    /// <returns>The generated aggregate result or null if no result is available.</returns>
+    private async Task<BatchProcessAggregateResult?> GenerateAggregateResult(BatchProcess batchProcess)
+    {
+        await using var context = contextFactory.Create();
+
+        var analysisTimestamp = DateTime.UtcNow;
+
+        var records = await context.BatchProcessItems
+            .Select(item => new
+            {
+                item.BatchProcessId,
+                Age = DateTime.Now.Year - item.Person.DateOfBirth.Year,
+                item.Person.HouseholdSize,
+                item.Person.NumberOfDependents,
+                item.Person.MaritalStatus
+            })
+            .Where(i => i.BatchProcessId == batchProcess.Id)
+            .ToListAsync();
+
+        var results = records
+            .GroupBy(i => i.BatchProcessId)
+            .Select(grouping => new
+            {
+                BatchProcessId = batchProcess.Id,
+                AverageAge = grouping.Average(item => item.Age),
+                AverageDependents = grouping.Average(item => item.NumberOfDependents),
+                AverageHouseholdSize = grouping.Average(item => item.HouseholdSize),
+                AverageMaritalStatus = grouping.GroupBy(item => item.MaritalStatus)
+                    .Select(msGroup => new MaritalStatusRecordAverage(msGroup.Key, msGroup.Average(item => item.Age))).ToList()
+
+            })
+            .FirstOrDefault();
+
+        if (results is null) return null;
+
+        return new BatchProcessAggregateResult(
+            batchProcess.Id,
+            analysisTimestamp,
+            results.AverageAge,
+            results.AverageDependents,
+            results.AverageHouseholdSize,
+            results.AverageMaritalStatus
+        );
     }
 }

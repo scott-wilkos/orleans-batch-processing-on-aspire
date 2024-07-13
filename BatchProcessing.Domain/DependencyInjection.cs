@@ -17,7 +17,7 @@ public static class DependencyInjection
     {
         builder.AddMongoDBClient("mongoDb");
 
-        builder.Services.AddScoped<ApplicationContext>(opt =>
+        builder.Services.AddTransient<ApplicationContext>(opt =>
         {
             var client = opt.GetRequiredService<IMongoClient>();
             var mongoDatabase = client.GetDatabase("mongoDb");

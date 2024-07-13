@@ -12,4 +12,8 @@
     <PackageReference Include="MongoDB.EntityFrameworkCore" Version="8.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\BatchProcessing.Shared\BatchProcessing.Shared.csproj" />
+  </ItemGroup>
+
 </Project>

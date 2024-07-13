@@ -24,7 +24,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Common", "Common", "{9640F0
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Application", "Application", "{7C2BC223-80EC-496C-8246-00B8C15E1114}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BatchProcessing.Domain", "BatchProcessing.Domain\BatchProcessing.Domain.csproj", "{AB9D8FEF-FB1A-46D8-9591-04E78993F817}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BatchProcessing.Domain", "BatchProcessing.Domain\BatchProcessing.Domain.csproj", "{AB9D8FEF-FB1A-46D8-9591-04E78993F817}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BatchProcessing.Shared", "BatchProcessing.Shared\BatchProcessing.Shared.csproj", "{301A8332-7BFF-4CE9-976A-59927EFCF2F4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -68,6 +70,10 @@ Global
 		{AB9D8FEF-FB1A-46D8-9591-04E78993F817}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AB9D8FEF-FB1A-46D8-9591-04E78993F817}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AB9D8FEF-FB1A-46D8-9591-04E78993F817}.Release|Any CPU.Build.0 = Release|Any CPU
+		{301A8332-7BFF-4CE9-976A-59927EFCF2F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{301A8332-7BFF-4CE9-976A-59927EFCF2F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{301A8332-7BFF-4CE9-976A-59927EFCF2F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{301A8332-7BFF-4CE9-976A-59927EFCF2F4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -82,6 +88,7 @@ Global
 		{16CE1C75-9BBC-4716-ABBF-8537335776CA} = {9640F068-2490-4BBB-80FC-218B5B5DDAE1}
 		{10DD5AFA-298B-4E59-854B-1465241F8EB2} = {9DE536E2-5219-4834-95FA-73C6E0342183}
 		{AB9D8FEF-FB1A-46D8-9591-04E78993F817} = {7C2BC223-80EC-496C-8246-00B8C15E1114}
+		{301A8332-7BFF-4CE9-976A-59927EFCF2F4} = {9640F068-2490-4BBB-80FC-218B5B5DDAE1}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {19770AAE-F539-4FFF-9397-7F9C38F3EC0D}

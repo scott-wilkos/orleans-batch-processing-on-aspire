@@ -9,7 +9,8 @@ var mongoDb = builder
 
 if (builder.Environment.IsDevelopment())
 {
-    mongoDb.WithDataVolume("prototyping-mongo");
+    // No need to persist right now
+    //mongoDb.WithDataVolume("prototyping-mongo");
 }
 
 var orleans = builder.AddOrleans("orleans-engine")

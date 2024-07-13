@@ -1,18 +1,25 @@
-﻿using BatchProcessing.Abstractions.Grains;
+﻿using BatchProcessing.Abstractions.Configuration;
+using BatchProcessing.Abstractions.Grains;
+using BatchProcessing.Shared;
+using Microsoft.Extensions.Logging;
+
+using Microsoft.Extensions.Options;
 
 namespace BatchProcessing.Grains;
 
 /// <summary>
 /// The EngineGovernorGrain class is responsible for managing the number of engines that can run concurrently.
 /// It ensures that the number of engines in the "InProgress" state does not exceed the maximum capacity.
+///
+/// NOTE:  This class could also help manage scaling out the number of engines based on the current load.
 /// </summary>
-internal class EngineGovernorGrain : IEngineGovernorGrain
+internal class EngineGovernorGrain(IOptions<EngineConfig> config, ILogger<EngineGovernorGrain> logger) : IEngineGovernorGrain
 {
     // List to maintain the state of each engine
-    private List<EngineGovernorStateRecord> _state = new();
+    private readonly List<EngineGovernorStateRecord> _queue = new();
 
     // Maximum number of engines that can run concurrently
-    private const int MaxCapacity = 3;
+    private readonly int _maxCapacity = config.Value.MaxActiveEngine;
 
     /// <summary>
     /// Attempts to start an engine. If the engine is already in the state list, it updates the last updated time.
@@ -23,43 +30,29 @@ internal class EngineGovernorGrain : IEngineGovernorGrain
     public Task<TryStartResponse> TryStartEngine(EngineStatusRecord engineStatus)
     {
         // Check to see if this engine is already in the state list
-        if (_state.All(x => x.EngineStatus.Id != engineStatus.Id))
+        if (_queue.All(x => x.EngineStatus.Id != engineStatus.Id))
         {
-            _state.Add(new EngineGovernorStateRecord(engineStatus, engineStatus.CreatedOnUtc, DateTime.UtcNow));
+            _queue.Add(new EngineGovernorStateRecord(engineStatus, engineStatus.CreatedOnUtc, DateTime.UtcNow));
         }
 
         // Check if we have capacity based on what is running
-        if (_state.Count(x => x.EngineStatus.Status == AnalysisStatusEnum.InProgress) >= MaxCapacity)
+        if (_queue.Count(x => x.EngineStatus.Status == AnalysisStatusEnum.InProgress) >= _maxCapacity)
         {
-            // Update last updated time for the engine
-            var state = _state.FirstOrDefault(x => x.EngineStatus.Id == engineStatus.Id);
-            if (state is not null)
-            {
-                state.SetLastUpdated(DateTime.UtcNow);
-            }
-
+            SetLastUpdated(engineStatus);
             return Task.FromResult(new TryStartResponse(engineStatus.Id, false, "Engine at capacity"));
         }
 
         // check to see if this is the next available item to run based on created time
-        var nextAvailable = _state
-            .Where(x => x.EngineStatus.Status == AnalysisStatusEnum.NotStarted)
-            .MinBy(x => x.CreatedOn);
+        var nextAvailable = GetNextExpectedFromQueue();
 
         if (nextAvailable is not null && nextAvailable.EngineStatus.Id != engineStatus.Id)
         {
-            // Update last updated time for the engine
-            var state = _state.FirstOrDefault(x => x.EngineStatus.Id == engineStatus.Id);
-            if (state is not null)
-            {
-                state.SetLastUpdated(DateTime.UtcNow);
-            }
-
+            SetLastUpdated(engineStatus);
             return Task.FromResult(new TryStartResponse(engineStatus.Id, false, "Engine not next available"));
         }
 
         // Set the engine state to "InProgress"
-        var stateInProgress = _state.FirstOrDefault(x => x.EngineStatus.Id == engineStatus.Id);
+        var stateInProgress = _queue.FirstOrDefault(x => x.EngineStatus.Id == engineStatus.Id);
         if (stateInProgress is not null)
         {
             stateInProgress.SetState(AnalysisStatusEnum.InProgress);
@@ -69,13 +62,35 @@ internal class EngineGovernorGrain : IEngineGovernorGrain
     }
 
     /// <summary>
+    /// Sets the last updated time for the specified engine status.
+    /// </summary>
+    /// <param name="engineStatus">The status record of the engine to be updated.</param>
+    private void SetLastUpdated(EngineStatusRecord engineStatus)
+    {
+        var state = _queue.FirstOrDefault(x => x.EngineStatus.Id == engineStatus.Id);
+        if (state is not null)
+        {
+            state.SetLastUpdated(DateTime.UtcNow);
+        }
+    }
+
+    /// <summary>
+    /// Gets the next expected engine from the queue based on the created time.
+    /// </summary>
+    /// <returns>The next expected EngineGovernorStateRecord or null if none are available.</returns>
+    private EngineGovernorStateRecord? GetNextExpectedFromQueue() =>
+        _queue
+            .Where(x => x.EngineStatus.Status == AnalysisStatusEnum.NotStarted)
+            .MinBy(x => x.CreatedOn);
+
+    /// <summary>
     /// Updates the status of an engine in the state list.
     /// </summary>
     /// <param name="engineStatus">The status record of the engine to be updated.</param>
     /// <returns>A Task representing the asynchronous operation.</returns>
     public Task UpdateStatus(EngineStatusRecord engineStatus)
     {
-        var state = _state.FirstOrDefault(x => x.EngineStatus.Id == engineStatus.Id);
+        var state = _queue.FirstOrDefault(x => x.EngineStatus.Id == engineStatus.Id);
         if (state is not null)
         {
             state.SetState(engineStatus.Status);

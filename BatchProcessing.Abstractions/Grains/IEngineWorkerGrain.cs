@@ -2,5 +2,5 @@
 
 public interface IEngineWorkerGrain : IGrainWithStringKey
 {
-    Task DoWork();
+    Task DoWork(Guid id);
 }

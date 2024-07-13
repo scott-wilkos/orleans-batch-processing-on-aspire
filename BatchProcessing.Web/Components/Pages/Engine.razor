@@ -42,10 +42,13 @@
 
     private bool _isSubmitting = false;
 
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
+        var runs = await Api.GetAllBatchProcessingStatusAsync();
+
+        _engineRuns.AddRange(runs);
+
         _timer = new Timer(async _ => await CheckStatus(), null, 0, 1000);
-        return Task.CompletedTask;
     }
 
     private async Task CheckStatus()
