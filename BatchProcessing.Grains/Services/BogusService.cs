@@ -37,7 +37,28 @@ internal static class BogusService
             .RuleFor(p => p.FirstName, f => f.Name.FirstName())
             .RuleFor(p => p.LastName, f => f.Name.LastName())
             .RuleFor(p => p.DateOfBirth, f => f.Date.Between(DateTime.Now.AddYears(-90), DateTime.Now))
-            .RuleFor(p => p.Address, f => GenerateAddress());
+            .RuleFor(p => p.Address, f => GenerateAddress())
+            .RuleFor(p => p.MaritalStatus, (f, p) =>
+            {
+                var age = DateTime.Now.Year - p.DateOfBirth.Year;
+                return age < 18 ? "Single" : f.PickRandom(new[] { "Single", "Married", "Divorced", "Widowed" });
+            })
+            .RuleFor(p => p.NumberOfDependents, (f, p) =>
+            {
+                var age = DateTime.Now.Year - p.DateOfBirth.Year;
+                if (age < 18) return 0;
+
+                if (age < 25) return f.Random.Int(0, 1);
+                if (age < 35) return f.Random.Int(0, 2);
+                if (age < 45) return f.Random.Int(0, 3);
+                if (age < 55) return f.Random.Int(0, 4);
+                return f.Random.Int(3, 5);
+            })
+            .RuleFor(p => p.HouseholdSize, (f, p) =>
+            {
+                var age = DateTime.Now.Year - p.DateOfBirth.Year;
+                return age < 18 ? f.Random.Int(2, 5) : f.Random.Int(1, 6);
+            }); ;
 
         return personFaker.Generate();
     }

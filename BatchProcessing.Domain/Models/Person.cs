@@ -24,4 +24,19 @@ public class Person
     /// Gets or sets the address of the person.
     /// </summary>
     public Address Address { get; set; }
+
+    /// <summary>
+    /// Gets or sets the marital status of the person.
+    /// </summary>
+    public string MaritalStatus { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of dependents of the person.
+    /// </summary>
+    public int NumberOfDependents { get; set; }
+
+    /// <summary>
+    /// Gets or sets the household size of the person.
+    /// </summary>
+    public int HouseholdSize { get; set; }
 }

@@ -28,6 +28,8 @@ internal class EngineWorkerGrain(ContextFactory contextFactory, ILogger<EngineWo
                 // Simulate some work delay between 125 and 275 milliseconds
                 await Task.Delay(Random.Next(125, 275));
 
+                item.AnalysisResult = GenerateAnalysisResult(item);
+
                 item.Status = BatchProcessItemStatusEnum.Completed;
                 await context.SaveChangesAsync();
             }
@@ -37,5 +39,17 @@ internal class EngineWorkerGrain(ContextFactory contextFactory, ILogger<EngineWo
             // Deactivate the grain as soon as the work is over to free up resources
             DeactivateOnIdle();
         }
+    }
+
+    /// <summary>
+    /// Generates analysis results for a given BatchProcessItem.
+    /// </summary>
+    /// <param name="item">The BatchProcessItem to analyze.</param>
+    /// <returns>The generated BatchProcessItemAnalysisResult object.</returns>
+    public BatchProcessItemAnalysisResult GenerateAnalysisResult(BatchProcessItem item)
+    {
+        var age = DateTime.Now.Year - item.Person.DateOfBirth.Year;
+        return new BatchProcessItemAnalysisResult(DateTime.UtcNow, age, item.Person.MaritalStatus,
+            item.Person.NumberOfDependents, item.Person.HouseholdSize);
     }
 }

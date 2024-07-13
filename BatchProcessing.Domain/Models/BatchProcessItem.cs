@@ -11,4 +11,6 @@ public class BatchProcessItem
     public DateTime CreatedOnUtc { get; set; }
 
     public Person Person { get; set; }
+
+    public BatchProcessItemAnalysisResult? AnalysisResult { get; set; }
 }
