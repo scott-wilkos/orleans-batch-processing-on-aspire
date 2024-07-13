@@ -1,18 +1,25 @@
-﻿using BatchProcessing.Abstractions.Grains;
+﻿using BatchProcessing.Abstractions.Configuration;
+using BatchProcessing.Abstractions.Grains;
+
+using Microsoft.Extensions.Logging;
+
+using Microsoft.Extensions.Options;
 
 namespace BatchProcessing.Grains;
 
 /// <summary>
 /// The EngineGovernorGrain class is responsible for managing the number of engines that can run concurrently.
 /// It ensures that the number of engines in the "InProgress" state does not exceed the maximum capacity.
+///
+/// NOTE:  This class could also help manage scaling out the number of engines based on the current load.
 /// </summary>
-internal class EngineGovernorGrain : IEngineGovernorGrain
+internal class EngineGovernorGrain(IOptions<EngineConfig> config, ILogger<EngineGovernorGrain> logger) : IEngineGovernorGrain
 {
     // List to maintain the state of each engine
     private readonly List<EngineGovernorStateRecord> _queue = new();
 
     // Maximum number of engines that can run concurrently
-    private const int MaxCapacity = 3;
+    private readonly int _maxCapacity = config.Value.MaxActiveEngine;
 
     /// <summary>
     /// Attempts to start an engine. If the engine is already in the state list, it updates the last updated time.
@@ -29,7 +36,7 @@ internal class EngineGovernorGrain : IEngineGovernorGrain
         }
 
         // Check if we have capacity based on what is running
-        if (_queue.Count(x => x.EngineStatus.Status == AnalysisStatusEnum.InProgress) >= MaxCapacity)
+        if (_queue.Count(x => x.EngineStatus.Status == AnalysisStatusEnum.InProgress) >= _maxCapacity)
         {
             SetLastUpdated(engineStatus);
             return Task.FromResult(new TryStartResponse(engineStatus.Id, false, "Engine at capacity"));
