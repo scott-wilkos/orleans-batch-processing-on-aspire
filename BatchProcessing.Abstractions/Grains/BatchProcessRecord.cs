@@ -1,5 +1,4 @@
-﻿using BatchProcessing.Domain.Models;
-using BatchProcessing.Shared;
+﻿using BatchProcessing.Shared;
 
 namespace BatchProcessing.Abstractions.Grains;
 
@@ -9,16 +8,5 @@ public record BatchProcessRecord(
     DateTime CreatedOn,
     DateTime? CompletedOn,
     BatchProcessStatusEnum Status,
+    int RecordCount = 0,
     BatchProcessAggregateResultRecord? AggregateResult = null);
-
-[GenerateSerializer]
-public record BatchProcessAggregateResultRecord(
-    Guid BatchProcessId,
-    DateTime AnalysisTimestamp,
-    double AverageAge,
-    double AverageDependents,
-    double AverageHouseholdSize,
-    List<MaritalStatusRecordAverageRecord> MaritalStatusCounts);
-
-[GenerateSerializer]
-public record MaritalStatusRecordAverageRecord(string MaritalStatus, double AverageCount);

@@ -1,5 +1,6 @@
 ﻿using BatchProcessing.Abstractions.Grains;
 using BatchProcessing.Domain;
+using BatchProcessing.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Orleans.Concurrency;
@@ -16,9 +17,26 @@ public class BatchProcessManagerGrain(ContextFactory contextFactory, ILogger<Bat
         await using var context = contextFactory.Create();
 
         var batchProcessRecords = await context.BatchProcesses
-            .Select(x => new BatchProcessRecord(x.Id, x.CreatedOn, x.CompletedOn, x.Status, null)).ToListAsync();
+            .Select(x => new BatchProcessProjection(x.Id, x.CreatedOn, x.CompletedOn, x.Status)).ToListAsync();
 
-        return batchProcessRecords;
+        return await SetRecordCountsAsync(batchProcessRecords);
+    }
+
+    private async Task<IEnumerable<BatchProcessRecord>> SetRecordCountsAsync(List<BatchProcessProjection> batchProcessRecords)
+    {
+        await using var context = contextFactory.Create();
+
+        List<BatchProcessRecord> results = new List<BatchProcessRecord>();
+
+        foreach (var batchProcessRecord in batchProcessRecords)
+        {
+            var recordCount = await context.BatchProcessItems.CountAsync(x => x.BatchProcessId == batchProcessRecord.Id);
+
+            results.Add(new BatchProcessRecord(batchProcessRecord.Id, batchProcessRecord.CreatedOn, batchProcessRecord.CompletedOn, batchProcessRecord.Status, recordCount));
+        }
+
+        return results;
+
     }
 
     [ReadOnly]
@@ -58,8 +76,6 @@ public class BatchProcessManagerGrain(ContextFactory contextFactory, ILogger<Bat
             return null;
         }
 
-
-
         var aggregateResult = batchProcess.AggregateResult == null ? null : new BatchProcessAggregateResultRecord(
             batchProcess.Id,
             batchProcess.AggregateResult.AnalysisTimestamp,
@@ -69,7 +85,14 @@ public class BatchProcessManagerGrain(ContextFactory contextFactory, ILogger<Bat
             batchProcess.AggregateResult.MaritalStatusCounts.Select(x =>
                 new MaritalStatusRecordAverageRecord(x.MaritalStatus, x.AverageCount)).ToList());
 
-        return new BatchProcessRecord(batchProcess.Id, batchProcess.CreatedOn, batchProcess.CompletedOn, batchProcess.Status, aggregateResult);
+        var recordCount = await context.BatchProcessItems.CountAsync(x => x.BatchProcessId == engineId);
 
+        return new BatchProcessRecord(batchProcess.Id, batchProcess.CreatedOn, batchProcess.CompletedOn, batchProcess.Status, recordCount, aggregateResult);
     }
+
+    private record BatchProcessProjection(
+        Guid Id,
+        DateTime CreatedOn,
+        DateTime? CompletedOn,
+        BatchProcessStatusEnum Status);
 }

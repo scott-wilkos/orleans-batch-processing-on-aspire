@@ -261,6 +261,11 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
         }
     }
 
+    /// <summary>
+    /// Generates the aggregate result for a given batch process.
+    /// </summary>
+    /// <param name="batchProcess">The batch process for which to generate the aggregate result.</param>
+    /// <returns>The generated aggregate result or null if no result is available.</returns>
     private async Task<BatchProcessAggregateResult?> GenerateAggregateResult(BatchProcess batchProcess)
     {
         await using var context = contextFactory.Create();

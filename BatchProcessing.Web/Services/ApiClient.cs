@@ -18,4 +18,17 @@ public class ApiClient(HttpClient httpClient)
 
         return response;
     }
+
+    public async Task<IEnumerable<EngineStatusRecord>> GetAllBatchProcessingStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var response =
+            await httpClient.GetFromJsonAsync<IEnumerable<EngineStatusRecord>>($"/batchProcessing/", cancellationToken);
+
+        if(response == null)
+        {
+            return new List<EngineStatusRecord>();
+        }
+
+        return response.Select(record => record with { RecordsProcessed = record.Status == AnalysisStatus.Completed ? record.RecordCount : record.RecordsProcessed });
+    }
 }
