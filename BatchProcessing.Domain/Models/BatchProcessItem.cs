@@ -1,4 +1,6 @@
-﻿namespace BatchProcessing.Domain.Models;
+﻿using BatchProcessing.Shared;
+
+namespace BatchProcessing.Domain.Models;
 
 public class BatchProcessItem
 {

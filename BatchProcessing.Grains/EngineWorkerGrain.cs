@@ -1,6 +1,7 @@
 ﻿using BatchProcessing.Abstractions.Grains;
 using BatchProcessing.Domain;
 using BatchProcessing.Domain.Models;
+using BatchProcessing.Shared;
 using Microsoft.Extensions.Logging;
 using Orleans.Concurrency;
 
@@ -33,6 +34,10 @@ internal class EngineWorkerGrain(ContextFactory contextFactory, ILogger<EngineWo
                 item.Status = BatchProcessItemStatusEnum.Completed;
                 await context.SaveChangesAsync();
             }
+        }
+        catch(Exception ex)
+        {
+            logger.LogError(ex, "Error processing item {Id}", id);
         }
         finally
         {

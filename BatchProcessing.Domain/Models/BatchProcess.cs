@@ -1,4 +1,6 @@
-﻿namespace BatchProcessing.Domain.Models;
+﻿using BatchProcessing.Shared;
+
+namespace BatchProcessing.Domain.Models;
 
 public class BatchProcess
 {
@@ -9,8 +11,6 @@ public class BatchProcess
     public DateTime? CompletedOn { get; set; }
 
     public BatchProcessStatusEnum Status { get; set; }
-
-    public List<BatchProcessItem> Items { get; set; } = new();
 
     public BatchProcessAggregateResult? AggregateResult { get; set; }
 }

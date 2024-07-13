@@ -1,4 +1,6 @@
-﻿namespace BatchProcessing.Abstractions.Grains;
+﻿using BatchProcessing.Shared;
+
+namespace BatchProcessing.Abstractions.Grains;
 
 [GenerateSerializer]
 public record EngineStatusRecord(

@@ -1,4 +1,5 @@
 ﻿using BatchProcessing.Domain.Models;
+using BatchProcessing.Shared;
 using Bogus;
 using Person = BatchProcessing.Domain.Models.Person;
 

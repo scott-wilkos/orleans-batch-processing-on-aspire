@@ -1,4 +1,5 @@
 ﻿using BatchProcessing.Abstractions.Grains;
+using BatchProcessing.Shared;
 
 namespace BatchProcessing.Grains;
 

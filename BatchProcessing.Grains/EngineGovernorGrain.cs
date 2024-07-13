@@ -1,6 +1,6 @@
 ﻿using BatchProcessing.Abstractions.Configuration;
 using BatchProcessing.Abstractions.Grains;
-
+using BatchProcessing.Shared;
 using Microsoft.Extensions.Logging;
 
 using Microsoft.Extensions.Options;

@@ -3,7 +3,7 @@ using BatchProcessing.Abstractions.Grains;
 using BatchProcessing.Domain;
 using BatchProcessing.Domain.Models;
 using BatchProcessing.Grains.Services;
-
+using BatchProcessing.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -161,25 +161,36 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
 
     private async Task SetCompleted(IEngineGovernorGrain governor)
     {
-        await using var context = contextFactory.Create();
+        try
+        {
+            await using var context = contextFactory.Create();
 
-        var batchProcess = await context.BatchProcesses.FindAsync(this.GetPrimaryKey());
+            var key = this.GetPrimaryKey();
 
-        if (batchProcess == null)
-            throw new InvalidOperationException("Batch Process not found");
+            var batchProcess = await context.BatchProcesses.FirstOrDefaultAsync(bp => bp.Id == key);
 
-        var aggregateResult = await GenerateAggregateResult(batchProcess);
+            if (batchProcess == null)
+                throw new InvalidOperationException("Batch Process not found");
 
-        batchProcess.AggregateResult = aggregateResult;
-        batchProcess.CompletedOn = DateTime.UtcNow;
-        batchProcess.Status = BatchProcessStatusEnum.Completed;
-        await context.SaveChangesAsync();
+            var aggregateResult = await GenerateAggregateResult(batchProcess);
 
-        _status = AnalysisStatusEnum.Completed;
-        // Update Governor with status
-        await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed, _createdOn));
+            batchProcess.AggregateResult = aggregateResult;
+            batchProcess.CompletedOn = DateTime.UtcNow;
+            batchProcess.Status = BatchProcessStatusEnum.Completed;
+            await context.SaveChangesAsync();
 
-        logger.LogInformation("{ProcessId} - Analysis completed", this.GetPrimaryKey());
+            _status = AnalysisStatusEnum.Completed;
+            // Update Governor with status
+            await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed, _createdOn));
+
+            logger.LogInformation("{ProcessId} - Analysis completed", this.GetPrimaryKey());
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "{ProcessId} - Error completing analysis", this.GetPrimaryKey());
+
+            throw;
+        }
     }
 
     /// <summary>
@@ -234,20 +245,31 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
 
         var analysisTimestamp = DateTime.UtcNow;
 
-        var results = await context.BatchProcessItems
+        var records = await context.BatchProcessItems
+            .Select(item => new
+            {
+                item.BatchProcessId,
+                Age = DateTime.Now.Year - item.Person.DateOfBirth.Year,
+                item.Person.HouseholdSize,
+                item.Person.NumberOfDependents,
+                item.Person.MaritalStatus
+            })
             .Where(i => i.BatchProcessId == batchProcess.Id)
+            .ToListAsync();
+
+        var results = records
             .GroupBy(i => i.BatchProcessId)
             .Select(grouping => new
             {
-                BatchProcessId = grouping.Key,
-                AverageAge = grouping.Average(item => DateTime.Now.Year - item.Person.DateOfBirth.Year),
-                TotalDependents = grouping.Sum(item => item.Person.NumberOfDependents),
-                AverageHouseholdSize = grouping.Average(item => item.Person.HouseholdSize),
-                MaritalStatusCounts = grouping.GroupBy(item => item.Person.MaritalStatus)
-                    .ToDictionary(msGroup => msGroup.Key, msGroup => msGroup.Count())
+                BatchProcessId = batchProcess.Id,
+                AverageAge = grouping.Average(item => item.Age),
+                AverageDependents = grouping.Average(item => item.NumberOfDependents),
+                AverageHouseholdSize = grouping.Average(item => item.HouseholdSize),
+                AverageMaritalStatus = grouping.GroupBy(item => item.MaritalStatus)
+                    .Select(msGroup => new MaritalStatusRecordAverage(msGroup.Key, msGroup.Average(item => item.Age))).ToList()
 
             })
-            .FirstOrDefaultAsync();
+            .FirstOrDefault();
 
         if (results is null) return null;
 
@@ -255,9 +277,9 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
             batchProcess.Id,
             analysisTimestamp,
             results.AverageAge,
-            results.TotalDependents,
+            results.AverageDependents,
             results.AverageHouseholdSize,
-            results.MaritalStatusCounts
+            results.AverageMaritalStatus
         );
     }
 }
