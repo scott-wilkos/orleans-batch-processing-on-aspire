@@ -11,4 +11,6 @@ public class BatchProcess
     public BatchProcessStatusEnum Status { get; set; }
 
     public List<BatchProcessItem> Items { get; set; } = new();
+
+    public BatchProcessAggregateResult? AggregateResult { get; set; }
 }

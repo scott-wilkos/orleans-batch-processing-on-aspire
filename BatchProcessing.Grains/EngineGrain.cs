@@ -168,6 +168,10 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
         if (batchProcess == null)
             throw new InvalidOperationException("Batch Process not found");
 
+        var aggregateResult = await GenerateAggregateResult(batchProcess);
+
+        batchProcess.AggregateResult = aggregateResult;
+        batchProcess.CompletedOn = DateTime.UtcNow;
         batchProcess.Status = BatchProcessStatusEnum.Completed;
         await context.SaveChangesAsync();
 
@@ -222,5 +226,38 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
             // Wait for the background task to complete, but don't wait indefinitely.
             await task.WaitAsync(cancellationToken);
         }
+    }
+
+    private async Task<BatchProcessAggregateResult?> GenerateAggregateResult(BatchProcess batchProcess)
+    {
+        await using var context = contextFactory.Create();
+
+        var analysisTimestamp = DateTime.UtcNow;
+
+        var results = await context.BatchProcessItems
+            .Where(i => i.BatchProcessId == batchProcess.Id)
+            .GroupBy(i => i.BatchProcessId)
+            .Select(grouping => new
+            {
+                BatchProcessId = grouping.Key,
+                AverageAge = grouping.Average(item => DateTime.Now.Year - item.Person.DateOfBirth.Year),
+                TotalDependents = grouping.Sum(item => item.Person.NumberOfDependents),
+                AverageHouseholdSize = grouping.Average(item => item.Person.HouseholdSize),
+                MaritalStatusCounts = grouping.GroupBy(item => item.Person.MaritalStatus)
+                    .ToDictionary(msGroup => msGroup.Key, msGroup => msGroup.Count())
+
+            })
+            .FirstOrDefaultAsync();
+
+        if (results is null) return null;
+
+        return new BatchProcessAggregateResult(
+            batchProcess.Id,
+            analysisTimestamp,
+            results.AverageAge,
+            results.TotalDependents,
+            results.AverageHouseholdSize,
+            results.MaritalStatusCounts
+        );
     }
 }
