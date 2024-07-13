@@ -127,6 +127,7 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
                     continue;
                 }
 
+                await SetStarted(governor);
                 _status = AnalysisStatusEnum.InProgress;
             }
 
@@ -180,7 +181,6 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
             await context.SaveChangesAsync();
 
             _status = AnalysisStatusEnum.Completed;
-            // Update Governor with status
             await governor.UpdateStatus(new EngineStatusRecord(this.GetPrimaryKey(), _status, _recordCount, _recordsProcessed, _createdOn));
 
             logger.LogInformation("{ProcessId} - Analysis completed", this.GetPrimaryKey());
@@ -188,7 +188,29 @@ internal class EngineGrain(ContextFactory contextFactory, IOptions<EngineConfig>
         catch (Exception ex)
         {
             logger.LogError(ex, "{ProcessId} - Error completing analysis", this.GetPrimaryKey());
+            throw;
+        }
+    }
 
+    private async Task SetStarted(IEngineGovernorGrain governor)
+    {
+        try
+        {
+            await using var context = contextFactory.Create();
+
+            var key = this.GetPrimaryKey();
+
+            var batchProcess = await context.BatchProcesses.FirstOrDefaultAsync(bp => bp.Id == key);
+
+            if (batchProcess == null)
+                throw new InvalidOperationException("Batch Process not found");
+
+            batchProcess.Status = BatchProcessStatusEnum.Running;
+            await context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "{ProcessId} - Error starting analysis", this.GetPrimaryKey());
             throw;
         }
     }

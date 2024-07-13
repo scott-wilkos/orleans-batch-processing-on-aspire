@@ -40,6 +40,13 @@ app.MapGet("/batchProcessing", async (IClusterClient client) =>
     return processes;
 });
 
+app.MapGet("/batchProcessing/{id}", async (IClusterClient client, Guid id) =>
+{
+    var grain = client.GetGrain<IBatchProcessManagerGrain>(0);
+    var process = await grain.GetBatchProcess(id);
+    return process;
+});
+
 app.MapDefaultEndpoints();
 
 app.Run();
